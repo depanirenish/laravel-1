@@ -1,0 +1,67 @@
+version: "3.8"
+services:
+    web:
+        image: eloxtech/php-nginx:8.2
+        volumes:
+            - ./.docker/nginx/default:/etc/nginx/sites-enabled/default
+            - ./.docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+            - ./.docker/php/php-dev.ini:/etc/php/8.2/cli/conf.d/custom.ini
+            - ./.docker/php/php-dev.ini:/etc/php/8.2/fpm/conf.d/custom.ini
+            - ./.docker/php/www.overrides.conf:/etc/php/8.2/fpm/pool.d/z-www.conf
+            - ./.docker/cron/cron.yml:/usr/local/etc/cron.yml
+            - ./.docker/supervisord/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+            - .:/var/www/html
+            - ./.docker/run.sh:/usr/local/bin/run.sh
+        working_dir: "/var/www/html"
+        restart: unless-stopped
+        labels:
+            - traefik.port=80
+            - traefik.enable=true
+            - "traefik.frontend.rule=Host:laravel.local.eloxtech.com"
+        command:
+            - /usr/local/bin/run.sh
+
+    mysql:
+        image: mariadb:10.4
+        environment:
+            MARIADB_DATABASE: web
+            MARIADB_USER: web
+            MARIADB_PASSWORD: web
+            MARIADB_ROOT_PASSWORD: web
+        volumes:
+            - ./.docker/mysql/mysql.cnf:/etc/mysql/conf.d/mysql.cnf
+        ports:
+            - "3306:3306"
+        restart: unless-stopped
+        labels:
+            - traefik.enable=false
+
+    redis:
+        image: redis
+        ports:
+            - "6379:6379"
+        restart: unless-stopped
+        labels:
+            - traefik.enable=false
+
+    mailhog:
+        image: mailhog/mailhog:latest
+        labels:
+            - traefik.enable=true
+            - traefik.port=8025
+            - "traefik.frontend.rule=Host:mailhog.local.eloxtech.com"
+
+    traefik:
+        image: traefik:1.7
+        command:
+            - "--api"
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./.docker/traefik/traefik.toml:/traefik.toml:ro
+        labels:
+            - traefik.enable=true
+            - traefik.port=8080
+            - "traefik.frontend.rule=Host:traefik.local.exoxtech.com"
+        ports:
+            - "80:80"
+            - "443:443"
